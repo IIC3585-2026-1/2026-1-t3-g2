@@ -1,0 +1,25 @@
+{
+  "name": "knapsack-wasm",
+  "version": "1.0.0",
+  "description": "Knapsack Problem solved with WebAssembly (C/C++ compiled with Emscripten)",
+  "main": "index.js",
+  "scripts": {
+    "compile": "bash compile.sh",
+    "serve": "cd web && python3 -m http.server 8000",
+    "serve-node": "cd web && npx http-server -p 8000"
+  },
+  "keywords": [
+    "knapsack",
+    "wasm",
+    "webassembly",
+    "emscripten",
+    "dynamic-programming",
+    "c++",
+    "algorithm"
+  ],
+  "author": "Grupo 2",
+  "license": "Educational",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}
