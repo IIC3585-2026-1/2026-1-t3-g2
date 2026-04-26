@@ -151,35 +151,76 @@ class KnapsackApp {
     return true;
   }
 
+  // Recalcular qué items fueron seleccionados usando DP
+  findSelectedItems(maxWeight, maxValue) {
+    const n = this.items.length;
+    const weights = this.items.map((item) => item.weight);
+    const values = this.items.map((item) => item.value);
+
+    // Crear tabla DP
+    const dp = Array(n + 1)
+      .fill(null)
+      .map(() => Array(maxWeight + 1).fill(0));
+
+    // Llenar tabla DP
+    for (let i = 1; i <= n; i++) {
+      for (let w = 1; w <= maxWeight; w++) {
+        if (weights[i - 1] <= w) {
+          dp[i][w] = Math.max(
+            values[i - 1] + dp[i - 1][w - weights[i - 1]],
+            dp[i - 1][w],
+          );
+        } else {
+          dp[i][w] = dp[i - 1][w];
+        }
+      }
+    }
+
+    // Backtracking para encontrar items seleccionados
+    const selected = [];
+    let w = maxWeight;
+    for (let i = n; i > 0 && w > 0; i--) {
+      if (dp[i][w] !== dp[i - 1][w]) {
+        selected.unshift(i - 1); // Agregar al inicio para mantener orden
+        w -= weights[i - 1];
+      }
+    }
+
+    return selected;
+  }
+
   async solve() {
     if (!this.validate()) return;
 
+    // Esperar a que el WASM esté listo
+    if (!this.wasmReady) {
+      this.showError(
+        'El módulo WASM aún no está cargado. Intenta de nuevo en un segundo.',
+      );
+      return;
+    }
+
+    const maxWeight = parseInt(document.getElementById('maxWeight').value);
+    const algorithm = document.getElementById('algorithm').value;
+    const n = this.items.length;
+
+    // Reservar memoria en el Heap de WASM (n * 4 bytes por cada Int32)
+    const weightsPtr = Module._malloc(n * 4);
+    const valuesPtr = Module._malloc(n * 4);
+
     try {
-      // Esperar a que el WASM esté listo
-      if (!this.wasmReady) {
-        this.showError(
-          'El módulo WASM aún no está cargado. Intenta de nuevo en un segundo.',
-        );
-        return;
-      }
-
-      const maxWeight = parseInt(document.getElementById('maxWeight').value);
-      const algorithm = document.getElementById('algorithm').value;
-      const n = this.items.length;
-
       // Crear arrays para pesos y valores
-      const weights = new Int32Array(n);
-      const values = new Int32Array(n);
+      const weights = new Int32Array(this.items.map((i) => i.weight));
+      const values = new Int32Array(this.items.map((i) => i.value));
 
-      this.items.forEach((item, idx) => {
-        weights[idx] = item.weight;
-        values[idx] = item.value;
-      });
+      // Copiar los datos de JS a la memoria de WASM
+      Module.HEAP32.set(weightsData, weightsPtr >> 2);
+      Module.HEAP32.set(valuesData, valuesPtr >> 2);
 
       // Obtener la función según el algoritmo seleccionado
       let solveFunc;
       let algorithmName;
-      
+
       switch (algorithm) {
         case 'recursive':
           solveFunc = this.solveRecursive;
@@ -208,17 +249,42 @@ class KnapsackApp {
       const endTime = performance.now();
       const executionTime = (endTime - startTime).toFixed(3);
 
+      // Encontrar qué items fueron seleccionados
+      const selectedIndices = this.findSelectedItems(maxWeight, resultValue);
+
       // Mostrar resultado
-      this.displayResult(resultValue, maxWeight, algorithmName, executionTime);
+      this.displayResult(
+        resultValue,
+        maxWeight,
+        algorithmName,
+        executionTime,
+        selectedIndices,
+      );
     } catch (error) {
       console.error('Error al resolver:', error);
       this.showError('Error al resolver el problema: ' + error.message);
+    } finally {
+      // LIBERAR MEMORIA (Crucial para no colapsar el navegador)
+      Module._free(weightsPtr);
+      Module._free(valuesPtr);
     }
   }
 
-  displayResult(maxValue, maxWeight, algorithmName, executionTime) {
+  displayResult(
+    maxValue,
+    maxWeight,
+    algorithmName,
+    executionTime,
+    selectedIndices,
+  ) {
     const resultDiv = document.getElementById('result');
     resultDiv.classList.add('success');
+
+    // Calcular peso total de items seleccionados
+    let totalWeight = 0;
+    selectedIndices.forEach((idx) => {
+      totalWeight += this.items[idx].weight;
+    });
 
     let html = `
             <div class="success-message">✓ Solución encontrada correctamente</div>
@@ -236,12 +302,16 @@ class KnapsackApp {
                     <td><strong>${maxValue}</strong></td>
                 </tr>
                 <tr>
-                    <td>Peso Máximo</td>
-                    <td><strong>${maxWeight}</strong></td>
+                    <td>Peso Total en Mochila</td>
+                    <td><strong>${totalWeight} / ${maxWeight}</strong></td>
                 </tr>
                 <tr>
-                    <td>Número de Items</td>
+                    <td>Número de Items Totales</td>
                     <td><strong>${this.items.length}</strong></td>
+                </tr>
+                <tr>
+                    <td>Items Seleccionados</td>
+                    <td><strong>${selectedIndices.length}</strong></td>
                 </tr>
                 <tr>
                     <td>Tiempo de Ejecución</td>
@@ -249,6 +319,32 @@ class KnapsackApp {
                 </tr>
             </table>
         `;
+
+    // Agregar tabla de items seleccionados
+    if (selectedIndices.length > 0) {
+      html += `
+            <h3 style="margin-top: 20px; margin-bottom: 10px;">📦 Items en la Mochila:</h3>
+            <table class="result-table">
+                <tr>
+                    <th>#</th>
+                    <th>Peso</th>
+                    <th>Valor</th>
+                </tr>
+        `;
+      selectedIndices.forEach((idx, count) => {
+        const item = this.items[idx];
+        html += `
+                <tr>
+                    <td>${count + 1}</td>
+                    <td>${item.weight}</td>
+                    <td>${item.value}</td>
+                </tr>
+        `;
+      });
+      html += `</table>`;
+    } else {
+      html += `<p style="margin-top: 20px; color: #888;">No se seleccionaron items</p>`;
+    }
 
     resultDiv.innerHTML = html;
   }
