@@ -82,6 +82,28 @@ input[type='number']:focus {
   border-color: #667eea;
 }
 
+select {
+  width: 100%;
+  padding: 10px;
+  border: 2px solid #e0e0e0;
+  border-radius: 5px;
+  font-size: 1rem;
+  background-color: white;
+  color: #333;
+  cursor: pointer;
+  transition: border-color 0.3s;
+}
+
+select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+select option {
+  padding: 5px;
+  color: #333;
+}
+
 .items-list {
   margin-bottom: 15px;
 }

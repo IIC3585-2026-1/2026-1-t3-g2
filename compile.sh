@@ -20,10 +20,10 @@ mkdir -p wasm
 mkdir -p web/wasm
 
 # Compilar el código C/C++ a WASM
-emcc cpp/knapsack.cpp \
+emcc cpp/knapsack_solvers.cpp \
     -o wasm/knapsack.js \
     -s WASM=1 \
-    -s EXPORTED_FUNCTIONS='["_solve_knapsack"]' \
+    -s EXPORTED_FUNCTIONS='["_solve_recursive","_solve_memo","_solve_dp","_solve_optimized"]' \
     -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap", "HEAPU32"]' \
     -O3
 

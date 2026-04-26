@@ -16,7 +16,11 @@ class KnapsackApp {
     ];
 
     this.wasmReady = false;
-    this.solveCpp = null;
+    // Funciones para cada algoritmo
+    this.solveRecursive = null;
+    this.solveMemo = null;
+    this.solveDp = null;
+    this.solveOptimized = null;
 
     this.setupEventListeners();
     this.loadExample();
@@ -25,6 +29,9 @@ class KnapsackApp {
   setupEventListeners() {
     document
       .getElementById('maxWeight')
+      .addEventListener('change', () => this.render());
+    document
+      .getElementById('algorithm')
       .addEventListener('change', () => this.render());
     document
       .getElementById('addItemBtn')
@@ -157,34 +164,59 @@ class KnapsackApp {
       }
 
       const maxWeight = parseInt(document.getElementById('maxWeight').value);
+      const algorithm = document.getElementById('algorithm').value;
       const n = this.items.length;
 
-      // Llamar la función (con valores dummy por ahora)
-      const resultPtr = this.solveCpp(0, 0, n, maxWeight);
+      // Crear arrays para pesos y valores
+      const weights = new Int32Array(n);
+      const values = new Int32Array(n);
 
-      // Leer los resultados desde la memoria WASM
-      const resultHeap = new Uint32Array(
-        Module.HEAPU32.buffer,
-        resultPtr,
-        n + 3,
-      );
-      const totalValue = resultHeap[0];
-      const totalWeight = resultHeap[1];
-      const count = resultHeap[2];
+      this.items.forEach((item, idx) => {
+        weights[idx] = item.weight;
+        values[idx] = item.value;
+      });
 
-      const selectedItems = [];
-      for (let i = 0; i < count; i++) {
-        selectedItems.push(resultHeap[3 + i] - 1); // Convertir a 0-based
+      // Obtener la función según el algoritmo seleccionado
+      let solveFunc;
+      let algorithmName;
+      
+      switch (algorithm) {
+        case 'recursive':
+          solveFunc = this.solveRecursive;
+          algorithmName = 'Recursión (Fuerza Bruta)';
+          break;
+        case 'memo':
+          solveFunc = this.solveMemo;
+          algorithmName = 'Memoización (Top-Down)';
+          break;
+        case 'dp':
+          solveFunc = this.solveDp;
+          algorithmName = 'DP Bottom-Up';
+          break;
+        case 'optimized':
+          solveFunc = this.solveOptimized;
+          algorithmName = 'DP Optimizado';
+          break;
       }
 
-      this.displayResult(selectedItems, totalValue, totalWeight);
+      // Medir tiempo de ejecución
+      const startTime = performance.now();
+
+      // Llamar la función WASM: solve_X(n, weights_ptr, values_ptr, maxWeight)
+      const resultValue = solveFunc(n, weights, values, maxWeight);
+
+      const endTime = performance.now();
+      const executionTime = (endTime - startTime).toFixed(3);
+
+      // Mostrar resultado
+      this.displayResult(resultValue, maxWeight, algorithmName, executionTime);
     } catch (error) {
       console.error('Error al resolver:', error);
       this.showError('Error al resolver el problema: ' + error.message);
     }
   }
 
-  displayResult(selectedItems, totalValue, totalWeight) {
+  displayResult(maxValue, maxWeight, algorithmName, executionTime) {
     const resultDiv = document.getElementById('result');
     resultDiv.classList.add('success');
 
@@ -196,40 +228,26 @@ class KnapsackApp {
                     <th>Valor</th>
                 </tr>
                 <tr>
-                    <td>Valor Total</td>
-                    <td><strong>${totalValue}</strong></td>
+                    <td>Algoritmo Usado</td>
+                    <td><strong>${algorithmName}</strong></td>
                 </tr>
                 <tr>
-                    <td>Peso Total</td>
-                    <td><strong>${totalWeight}</strong></td>
+                    <td>Valor Máximo</td>
+                    <td><strong>${maxValue}</strong></td>
                 </tr>
                 <tr>
-                    <td>Items Seleccionados</td>
-                    <td><strong>${selectedItems.length}</strong></td>
+                    <td>Peso Máximo</td>
+                    <td><strong>${maxWeight}</strong></td>
+                </tr>
+                <tr>
+                    <td>Número de Items</td>
+                    <td><strong>${this.items.length}</strong></td>
+                </tr>
+                <tr>
+                    <td>Tiempo de Ejecución</td>
+                    <td><strong>${executionTime} ms</strong></td>
                 </tr>
             </table>
-            <div class="solution-items">
-                <h3>Items en la Solución:</h3>
-                <div class="items-selected">
-        `;
-
-    if (selectedItems.length === 0) {
-      html += '<p style="color: #999;">No se seleccionaron items</p>';
-    } else {
-      selectedItems.forEach((itemIdx, pos) => {
-        const item = this.items[itemIdx];
-        html += `
-                    <div class="item-badge">
-                        Item ${itemIdx + 1} <br>
-                        P: ${item.weight} V: ${item.value}
-                    </div>
-                `;
-      });
-    }
-
-    html += `
-                </div>
-            </div>
         `;
 
     resultDiv.innerHTML = html;
@@ -250,16 +268,39 @@ if (typeof Module === 'undefined') {
 Module.onRuntimeInitialized = function () {
   console.log('✓ Módulo WASM cargado exitosamente');
 
-  // Crear referencia a la función C
+  // Cargar las 4 funciones de resolución
   if (typeof Module.cwrap === 'function') {
-    app.solveCpp = Module.cwrap('solve_knapsack', 'number', [
+    app.solveRecursive = Module.cwrap('solve_recursive', 'number', [
       'number',
-      'number',
-      'number',
+      'array',
+      'array',
       'number',
     ]);
+    app.solveMemo = Module.cwrap('solve_memo', 'number', [
+      'number',
+      'array',
+      'array',
+      'number',
+    ]);
+    app.solveDp = Module.cwrap('solve_dp', 'number', [
+      'number',
+      'array',
+      'array',
+      'number',
+    ]);
+    app.solveOptimized = Module.cwrap('solve_optimized', 'number', [
+      'number',
+      'array',
+      'array',
+      'number',
+    ]);
+
     app.wasmReady = true;
-    console.log('✓ Función WASM lista');
+    console.log('✓ Todas las funciones WASM están listas');
+    console.log('  - solve_recursive (Recursión)');
+    console.log('  - solve_memo (Memoización)');
+    console.log('  - solve_dp (DP Bottom-Up)');
+    console.log('  - solve_optimized (DP Optimizado)');
   } else {
     console.error('cwrap no disponible');
   }
