@@ -23,7 +23,7 @@ mkdir -p web/wasm
 emcc cpp/knapsack_solvers.cpp \
     -o wasm/knapsack.js \
     -s WASM=1 \
-    -s EXPORTED_FUNCTIONS='["_solve_recursive","_solve_memo","_solve_dp","_solve_optimized"]' \
+    -s EXPORTED_FUNCTIONS='["_solve_recursive","_solve_memo","_solve_dp","_solve_optimized","_malloc","_free"]' \
     -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap", "HEAPU32"]' \
     -O3
 

@@ -167,15 +167,6 @@ class KnapsackApp {
       const algorithm = document.getElementById('algorithm').value;
       const n = this.items.length;
 
-      // Crear arrays para pesos y valores
-      const weights = new Int32Array(n);
-      const values = new Int32Array(n);
-
-      this.items.forEach((item, idx) => {
-        weights[idx] = item.weight;
-        values[idx] = item.value;
-      });
-
       // Obtener la función según el algoritmo seleccionado
       let solveFunc;
       let algorithmName;
@@ -199,14 +190,32 @@ class KnapsackApp {
           break;
       }
 
+      // Asignar memoria en WASM para pesos y valores
+      const weightsPtr = Module._malloc(n * 4); // 4 bytes por int
+      const valuesPtr = Module._malloc(n * 4);
+
+      // Crear views en la memoria de WASM
+      const weightsHeap = new Int32Array(Module.HEAP32.buffer, weightsPtr, n);
+      const valuesHeap = new Int32Array(Module.HEAP32.buffer, valuesPtr, n);
+
+      // Copiar datos a la memoria WASM
+      this.items.forEach((item, idx) => {
+        weightsHeap[idx] = item.weight;
+        valuesHeap[idx] = item.value;
+      });
+
       // Medir tiempo de ejecución
       const startTime = performance.now();
 
-      // Llamar la función WASM: solve_X(n, weights_ptr, values_ptr, maxWeight)
-      const resultValue = solveFunc(n, weights, values, maxWeight);
+      // Llamar la función WASM con punteros directos
+      const resultValue = solveFunc(n, weightsPtr, valuesPtr, maxWeight);
 
       const endTime = performance.now();
       const executionTime = (endTime - startTime).toFixed(3);
+
+      // Liberar memoria
+      Module._free(weightsPtr);
+      Module._free(valuesPtr);
 
       // Mostrar resultado
       this.displayResult(resultValue, maxWeight, algorithmName, executionTime);
@@ -269,29 +278,31 @@ Module.onRuntimeInitialized = function () {
   console.log('✓ Módulo WASM cargado exitosamente');
 
   // Cargar las 4 funciones de resolución
+  // Firma en C++: int solve_X(int n, int* wt, int* val, int W)
+  // Los punteros se pasan como números (obtenemos punteros de malloc)
   if (typeof Module.cwrap === 'function') {
     app.solveRecursive = Module.cwrap('solve_recursive', 'number', [
       'number',
-      'array',
-      'array',
+      'number',
+      'number',
       'number',
     ]);
     app.solveMemo = Module.cwrap('solve_memo', 'number', [
       'number',
-      'array',
-      'array',
+      'number',
+      'number',
       'number',
     ]);
     app.solveDp = Module.cwrap('solve_dp', 'number', [
       'number',
-      'array',
-      'array',
+      'number',
+      'number',
       'number',
     ]);
     app.solveOptimized = Module.cwrap('solve_optimized', 'number', [
       'number',
-      'array',
-      'array',
+      'number',
+      'number',
       'number',
     ]);
 
