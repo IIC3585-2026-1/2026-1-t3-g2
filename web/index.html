@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Knapsack Problem - WebAssembly</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>🎒 Problema de la Mochila (Knapsack)</h1>
+        <p class="subtitle">Solución en WebAssembly (C/C++ + Emscripten)</p>
+      </header>
+
+      <main>
+        <!-- Panel de entrada -->
+        <section class="panel">
+          <h2>Datos de Entrada</h2>
+
+          <div class="form-group">
+            <label for="maxWeight">Peso Máximo de la Mochila:</label>
+            <input type="number" id="maxWeight" min="1" max="100" value="15" />
+          </div>
+
+          <div class="form-group">
+            <label>Items (Peso - Valor):</label>
+            <div id="itemsList" class="items-list"></div>
+            <button id="addItemBtn" class="btn btn-secondary">
+              + Agregar Item
+            </button>
+          </div>
+
+          <div class="button-group">
+            <button id="solveBtn" class="btn btn-primary">Resolver</button>
+            <button id="exampleBtn" class="btn btn-secondary">
+              Cargar Ejemplo
+            </button>
+            <button id="clearBtn" class="btn btn-secondary">Limpiar</button>
+          </div>
+        </section>
+
+        <!-- Panel de resultados -->
+        <section class="panel">
+          <h2>Resultado</h2>
+          <div id="result" class="result-area">
+            <p class="placeholder">Los resultados aparecerán aquí...</p>
+          </div>
+        </section>
+
+        <!-- Panel de información -->
+        <section class="panel info-panel">
+          <h2>ℹ️ Información</h2>
+          <div class="info-content">
+            <p><strong>Algoritmo:</strong> Programación Dinámica O(n × W)</p>
+            <p>
+              <strong>Implementación:</strong> C/C++ compilado a WebAssembly
+            </p>
+            <p>
+              <strong>Restricciones:</strong> n ≤ 100, peso máximo ≤ 100,
+              valores ≤ 100
+            </p>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <p>Educativo - 2026 | Grupo 2</p>
+      </footer>
+    </div>
+
+    <!-- Cargar el módulo WASM -->
+    <script src="wasm/knapsack.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
