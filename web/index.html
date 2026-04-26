@@ -24,6 +24,16 @@
           </div>
 
           <div class="form-group">
+            <label for="algorithm">Algoritmo a Usar:</label>
+            <select id="algorithm">
+              <option value="recursive">Recursión (Fuerza Bruta)</option>
+              <option value="memo">Memoización (Top-Down)</option>
+              <option value="dp" selected>Tabulación Bottom-Up</option>
+              <option value="optimized">Optimizado (Menos Memoria)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
             <label>Items (Peso - Valor):</label>
             <div id="itemsList" class="items-list"></div>
             <button id="addItemBtn" class="btn btn-secondary">
@@ -50,16 +60,32 @@
 
         <!-- Panel de información -->
         <section class="panel info-panel">
-          <h2>ℹ️ Información</h2>
+          <h2>ℹ️ Algoritmos Disponibles</h2>
           <div class="info-content">
-            <p><strong>Algoritmo:</strong> Programación Dinámica O(n × W)</p>
-            <p>
-              <strong>Implementación:</strong> C/C++ compilado a WebAssembly
-            </p>
-            <p>
-              <strong>Restricciones:</strong> n ≤ 100, peso máximo ≤ 100,
-              valores ≤ 100
-            </p>
+            <div>
+              <p><strong>🔄 Recursión (Fuerza Bruta)</strong></p>
+              <p style="font-size: 0.9rem; color: #888; margin-top: 5px;">
+                O(2^n) - Muy lento para n grande. Solo para fines educativos.
+              </p>
+            </div>
+            <div>
+              <p><strong>💾 Memoización (Top-Down)</strong></p>
+              <p style="font-size: 0.9rem; color: #888; margin-top: 5px;">
+                O(n × W) - Recursión optimizada con caché. Buen balance.
+              </p>
+            </div>
+            <div>
+              <p><strong>📊 DP Bottom-Up (Recomendado)</strong></p>
+              <p style="font-size: 0.9rem; color: #888; margin-top: 5px;">
+                O(n × W) - Iterativo. Más eficiente que memoización.
+              </p>
+            </div>
+            <div>
+              <p><strong>⚡ DP Optimizado</strong></p>
+              <p style="font-size: 0.9rem; color: #888; margin-top: 5px;">
+                O(n × W), O(W) memoria - Menos RAM, más rápido.
+              </p>
+            </div>
           </div>
         </section>
       </main>
