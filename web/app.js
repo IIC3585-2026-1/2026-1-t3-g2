@@ -151,41 +151,33 @@ class KnapsackApp {
     return true;
   }
 
-  // Recalcular qué items fueron seleccionados usando DP
   findSelectedItems(maxWeight, maxValue) {
     const n = this.items.length;
     const weights = this.items.map((item) => item.weight);
     const values = this.items.map((item) => item.value);
-
-    // Crear tabla DP
     const dp = Array(n + 1)
       .fill(null)
       .map(() => Array(maxWeight + 1).fill(0));
 
-    // Llenar tabla DP
     for (let i = 1; i <= n; i++) {
       for (let w = 1; w <= maxWeight; w++) {
-        if (weights[i - 1] <= w) {
+        if (weights[i - 1] <= w)
           dp[i][w] = Math.max(
             values[i - 1] + dp[i - 1][w - weights[i - 1]],
             dp[i - 1][w],
           );
-        } else {
-          dp[i][w] = dp[i - 1][w];
-        }
+        else dp[i][w] = dp[i - 1][w];
       }
     }
 
-    // Backtracking para encontrar items seleccionados
     const selected = [];
     let w = maxWeight;
     for (let i = n; i > 0 && w > 0; i--) {
       if (dp[i][w] !== dp[i - 1][w]) {
-        selected.unshift(i - 1); // Agregar al inicio para mantener orden
+        selected.unshift(i - 1);
         w -= weights[i - 1];
       }
     }
-
     return selected;
   }
 
@@ -204,18 +196,17 @@ class KnapsackApp {
     const algorithm = document.getElementById('algorithm').value;
     const n = this.items.length;
 
-    // Reservar memoria en el Heap de WASM (n * 4 bytes por cada Int32)
-    const weightsPtr = Module._malloc(n * 4);
+    // Asignar memoria en WASM para pesos y valores
+    const weightsPtr = Module._malloc(n * 4); // 4 bytes por int
     const valuesPtr = Module._malloc(n * 4);
 
     try {
-      // Crear arrays para pesos y valores
-      const weights = new Int32Array(this.items.map((i) => i.weight));
-      const values = new Int32Array(this.items.map((i) => i.value));
+      // Crear views en la memoria de WASM
+      const weightsData = new Int32Array(this.items.map((i) => i.weight));
+      const valuesData = new Int32Array(this.items.map((i) => i.value));
 
-      // Copiar los datos de JS a la memoria de WASM
-      Module.HEAP32.set(weightsData, weightsPtr >> 2);
-      Module.HEAP32.set(valuesData, valuesPtr >> 2);
+      Module.HEAPU32.set(weightsData, weightsPtr >> 2);
+      Module.HEAPU32.set(valuesData, valuesPtr >> 2);
 
       // Obtener la función según el algoritmo seleccionado
       let solveFunc;
@@ -243,44 +234,29 @@ class KnapsackApp {
       // Medir tiempo de ejecución
       const startTime = performance.now();
 
-      // Llamar la función WASM: solve_X(n, weights_ptr, values_ptr, maxWeight)
-      const resultValue = solveFunc(n, weights, values, maxWeight);
+      // Llamar la función WASM con punteros directos
+      const resultValue = solveFunc(n, weightsPtr, valuesPtr, maxWeight);
 
       const endTime = performance.now();
       const executionTime = (endTime - startTime).toFixed(3);
 
-      // Encontrar qué items fueron seleccionados
       const selectedIndices = this.findSelectedItems(maxWeight, resultValue);
 
       // Mostrar resultado
-      this.displayResult(
-        resultValue,
-        maxWeight,
-        algorithmName,
-        executionTime,
-        selectedIndices,
-      );
+      this.displayResult(resultValue, maxWeight, algorithmName, executionTime);
     } catch (error) {
       console.error('Error al resolver:', error);
       this.showError('Error al resolver el problema: ' + error.message);
     } finally {
-      // LIBERAR MEMORIA (Crucial para no colapsar el navegador)
+      // Liberar memoria
       Module._free(weightsPtr);
       Module._free(valuesPtr);
     }
   }
 
-  displayResult(
-    maxValue,
-    maxWeight,
-    algorithmName,
-    executionTime,
-    selectedIndices,
-  ) {
+  displayResult(maxValue, maxWeight, algorithmName, executionTime) {
     const resultDiv = document.getElementById('result');
     resultDiv.classList.add('success');
-
-    // Calcular peso total de items seleccionados
     let totalWeight = 0;
     selectedIndices.forEach((idx) => {
       totalWeight += this.items[idx].weight;
@@ -302,49 +278,20 @@ class KnapsackApp {
                     <td><strong>${maxValue}</strong></td>
                 </tr>
                 <tr>
-                    <td>Peso Total en Mochila</td>
-                    <td><strong>${totalWeight} / ${maxWeight}</strong></td>
-                </tr>
-                <tr>
-                    <td>Número de Items Totales</td>
-                    <td><strong>${this.items.length}</strong></td>
-                </tr>
-                <tr>
-                    <td>Items Seleccionados</td>
-                    <td><strong>${selectedIndices.length}</strong></td>
+                  <td>Peso Total</td>
+                  <td>${totalWeight} / ${maxWeight}</td>
                 </tr>
                 <tr>
                     <td>Tiempo de Ejecución</td>
                     <td><strong>${executionTime} ms</strong></td>
                 </tr>
             </table>
-        `;
-
-    // Agregar tabla de items seleccionados
-    if (selectedIndices.length > 0) {
-      html += `
-            <h3 style="margin-top: 20px; margin-bottom: 10px;">📦 Items en la Mochila:</h3>
+            <h3 style="margin-top:20px">📦 Items en la Mochila:</h3>
             <table class="result-table">
-                <tr>
-                    <th>#</th>
-                    <th>Peso</th>
-                    <th>Valor</th>
-                </tr>
+              <tr><th>#</th><th>Peso</th><th>Valor</th></tr>
+              ${selectedIndices.map((idx, i) => `<tr><td>${i + 1}</td><td>${this.items[idx].weight}</td><td>${this.items[idx].value}</td></tr>`).join('')}
+            </table>
         `;
-      selectedIndices.forEach((idx, count) => {
-        const item = this.items[idx];
-        html += `
-                <tr>
-                    <td>${count + 1}</td>
-                    <td>${item.weight}</td>
-                    <td>${item.value}</td>
-                </tr>
-        `;
-      });
-      html += `</table>`;
-    } else {
-      html += `<p style="margin-top: 20px; color: #888;">No se seleccionaron items</p>`;
-    }
 
     resultDiv.innerHTML = html;
   }
@@ -365,29 +312,31 @@ Module.onRuntimeInitialized = function () {
   console.log('✓ Módulo WASM cargado exitosamente');
 
   // Cargar las 4 funciones de resolución
+  // Firma en C++: int solve_X(int n, int* wt, int* val, int W)
+  // Los punteros se pasan como números (obtenemos punteros de malloc)
   if (typeof Module.cwrap === 'function') {
     app.solveRecursive = Module.cwrap('solve_recursive', 'number', [
       'number',
-      'array',
-      'array',
+      'number',
+      'number',
       'number',
     ]);
     app.solveMemo = Module.cwrap('solve_memo', 'number', [
       'number',
-      'array',
-      'array',
+      'number',
+      'number',
       'number',
     ]);
     app.solveDp = Module.cwrap('solve_dp', 'number', [
       'number',
-      'array',
-      'array',
+      'number',
+      'number',
       'number',
     ]);
     app.solveOptimized = Module.cwrap('solve_optimized', 'number', [
       'number',
-      'array',
-      'array',
+      'number',
+      'number',
       'number',
     ]);
 
