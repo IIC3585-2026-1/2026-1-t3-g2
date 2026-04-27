@@ -85,6 +85,26 @@ chmod +x compile.sh
 
 Esto generará los archivos necesarios en la carpeta `wasm/`.
 
+## ✅ Testing (C++ sin WASM)
+
+Para probar los algoritmos C++ directamente sin WASM ni JavaScript:
+
+```bash
+# Navegar a la carpeta cpp
+cd cpp
+
+# Compilar y ejecutar las pruebas
+g++ -o test test.cpp && ./test
+```
+
+Las pruebas verificarán que los 4 algoritmos (recursivo, memoización, DP, DP optimizado) den resultados correctos en diferentes casos:
+
+- Ejemplo básico
+- Ejemplo del proyecto
+- Edge cases (W=0)
+
+**Nota**: El binario `test` se ignora en git automáticamente
+
 ## 🌐 Ejecución
 
 Para ejecutar la aplicación web, necesitas un servidor local (Emscripten genera archivos que requieren CORS):
@@ -92,7 +112,7 @@ Para ejecutar la aplicación web, necesitas un servidor local (Emscripten genera
 ```bash
 # Opción 1: Python 3
 cd web
-python -m http.server 8000
+python3 -m http.server 8000
 
 # Opción 2: Node.js (http-server)
 cd web

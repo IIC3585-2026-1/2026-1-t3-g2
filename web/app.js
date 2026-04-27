@@ -151,6 +151,36 @@ class KnapsackApp {
     return true;
   }
 
+  findSelectedItems(maxWeight, maxValue) {
+    const n = this.items.length;
+    const weights = this.items.map((item) => item.weight);
+    const values = this.items.map((item) => item.value);
+    const dp = Array(n + 1)
+      .fill(null)
+      .map(() => Array(maxWeight + 1).fill(0));
+
+    for (let i = 1; i <= n; i++) {
+      for (let w = 1; w <= maxWeight; w++) {
+        if (weights[i - 1] <= w)
+          dp[i][w] = Math.max(
+            values[i - 1] + dp[i - 1][w - weights[i - 1]],
+            dp[i - 1][w],
+          );
+        else dp[i][w] = dp[i - 1][w];
+      }
+    }
+
+    const selected = [];
+    let w = maxWeight;
+    for (let i = n; i > 0 && w > 0; i--) {
+      if (dp[i][w] !== dp[i - 1][w]) {
+        selected.unshift(i - 1);
+        w -= weights[i - 1];
+      }
+    }
+    return selected;
+  }
+
   async solve() {
     if (!this.validate()) return;
 
@@ -166,29 +196,6 @@ class KnapsackApp {
     const algorithm = document.getElementById('algorithm').value;
     const n = this.items.length;
 
-    // Obtener la función según el algoritmo seleccionado
-    let solveFunc;
-    let algorithmName;
-
-    switch (algorithm) {
-      case 'recursive':
-        solveFunc = this.solveRecursive;
-        algorithmName = 'Recursión (Fuerza Bruta)';
-        break;
-      case 'memo':
-        solveFunc = this.solveMemo;
-        algorithmName = 'Memoización (Top-Down)';
-        break;
-      case 'dp':
-        solveFunc = this.solveDp;
-        algorithmName = 'DP Bottom-Up';
-        break;
-      case 'optimized':
-        solveFunc = this.solveOptimized;
-        algorithmName = 'DP Optimizado';
-        break;
-    }
-
     // Asignar memoria en WASM para pesos y valores
     const weightsPtr = Module._malloc(n * 4); // 4 bytes por int
     const valuesPtr = Module._malloc(n * 4);
@@ -201,6 +208,29 @@ class KnapsackApp {
       Module.HEAPU32.set(weightsData, weightsPtr >> 2);
       Module.HEAPU32.set(valuesData, valuesPtr >> 2);
 
+      // Obtener la función según el algoritmo seleccionado
+      let solveFunc;
+      let algorithmName;
+
+      switch (algorithm) {
+        case 'recursive':
+          solveFunc = this.solveRecursive;
+          algorithmName = 'Recursión (Fuerza Bruta)';
+          break;
+        case 'memo':
+          solveFunc = this.solveMemo;
+          algorithmName = 'Memoización (Top-Down)';
+          break;
+        case 'dp':
+          solveFunc = this.solveDp;
+          algorithmName = 'DP Bottom-Up';
+          break;
+        case 'optimized':
+          solveFunc = this.solveOptimized;
+          algorithmName = 'DP Optimizado';
+          break;
+      }
+
       // Medir tiempo de ejecución
       const startTime = performance.now();
 
@@ -210,8 +240,16 @@ class KnapsackApp {
       const endTime = performance.now();
       const executionTime = (endTime - startTime).toFixed(3);
 
+      const selectedIndices = this.findSelectedItems(maxWeight, resultValue);
+
       // Mostrar resultado
-      this.displayResult(resultValue, maxWeight, algorithmName, executionTime);
+      this.displayResult(
+        resultValue,
+        maxWeight,
+        algorithmName,
+        executionTime,
+        selectedIndices,
+      );
     } catch (error) {
       console.error('Error al resolver:', error);
       this.showError('Error al resolver el problema: ' + error.message);
@@ -222,9 +260,19 @@ class KnapsackApp {
     }
   }
 
-  displayResult(maxValue, maxWeight, algorithmName, executionTime) {
+  displayResult(
+    maxValue,
+    maxWeight,
+    algorithmName,
+    executionTime,
+    selectedIndices,
+  ) {
     const resultDiv = document.getElementById('result');
     resultDiv.classList.add('success');
+    let totalWeight = 0;
+    selectedIndices.forEach((idx) => {
+      totalWeight += this.items[idx].weight;
+    });
 
     let html = `
             <div class="success-message">✓ Solución encontrada correctamente</div>
@@ -242,17 +290,18 @@ class KnapsackApp {
                     <td><strong>${maxValue}</strong></td>
                 </tr>
                 <tr>
-                    <td>Peso Máximo</td>
-                    <td><strong>${maxWeight}</strong></td>
-                </tr>
-                <tr>
-                    <td>Número de Items</td>
-                    <td><strong>${this.items.length}</strong></td>
+                  <td>Peso Total</td>
+                  <td>${totalWeight} / ${maxWeight}</td>
                 </tr>
                 <tr>
                     <td>Tiempo de Ejecución</td>
                     <td><strong>${executionTime} ms</strong></td>
                 </tr>
+            </table>
+            <h3 style="margin-top:20px">Items en la Mochila:</h3>
+            <table class="result-table">
+              <tr><th>#</th><th>Peso</th><th>Valor</th></tr>
+              ${selectedIndices.map((idx, i) => `<tr><td>${i + 1}</td><td>${this.items[idx].weight}</td><td>${this.items[idx].value}</td></tr>`).join('')}
             </table>
         `;
 
