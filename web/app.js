@@ -4,6 +4,36 @@
  */
 
 let app; // Variable global para la aplicación
+const ALGO_INFO = { // info sobre cada algoritmo
+  recursive: {
+    name: 'Recursión (Fuerza Bruta)',
+    badge: 'badge-slow', badgeText: 'Muy lento',
+    timeComp: 'O(2ⁿ)', spaceComp: 'O(n)',
+    description: 'Explora <strong>todas las combinaciones posibles</strong>. No reutiliza subproblemas, el árbol de llamadas crece exponencialmente. Solo útil con <strong>n muy pequeño (≤ 20)</strong>.',
+    code: `int knapsack_recursive(int W, int wt[], int val[], int n) {\n    if (n == 0 || W == 0) return 0;\n    if (wt[n-1] > W) return knapsack_recursive(W, wt, val, n-1);\n    int inc = val[n-1] + knapsack_recursive(W-wt[n-1], wt, val, n-1);\n    int exc = knapsack_recursive(W, wt, val, n-1);\n    return (inc > exc) ? inc : exc;\n}`
+  },
+  memo: {
+    name: 'Memoización (Top-Down)',
+    badge: 'badge-medium', badgeText: 'Moderado',
+    timeComp: 'O(n × W)', spaceComp: 'O(n × W)',
+    description: 'Agrega una <strong>tabla de caché (memo[][])</strong> a la recursión. Antes de calcular un subproblema revisa si ya fue resuelto. Elimina el trabajo exponencial redundante.',
+    code: `int memo[101][101];\nint knapsack_memo(int W, int wt[], int val[], int n) {\n    if (n == 0 || W == 0) return 0;\n    if (memo[n][W] != -1) return memo[n][W]; // cache hit\n    if (wt[n-1] > W) return memo[n][W] = knapsack_memo(W, wt, val, n-1);\n    int inc = val[n-1] + knapsack_memo(W-wt[n-1], wt, val, n-1);\n    int exc = knapsack_memo(W, wt, val, n-1);\n    return memo[n][W] = (inc > exc) ? inc : exc;\n}`
+  },
+  dp: {
+    name: 'Tabulación Bottom-Up',
+    badge: 'badge-fast', badgeText: 'Recomendado',
+    timeComp: 'O(n × W)', spaceComp: 'O(n × W)',
+    description: 'Construye la solución <strong>iterativamente</strong> llenando una tabla dp[i][w]. Evita la sobrecarga de recursión y generalmente es más eficiente con el espacio.',
+    code: `int knapsack_dp(int W, int wt[], int val[], int n) {\n    int dp[101][101] = {0};\n    for (int i = 1; i <= n; i++)\n        for (int w = 1; w <= W; w++)\n            if (wt[i-1] <= w)\n                dp[i][w] = max(val[i-1] + dp[i-1][w-wt[i-1]], dp[i-1][w]);\n            else\n                dp[i][w] = dp[i-1][w];\n    return dp[n][W];\n}`
+  },
+  optimized: {
+    name: 'Optimizado (Menos Memoria)',
+    badge: 'badge-fast', badgeText: 'Eficiente',
+    timeComp: 'O(n × W)', spaceComp: 'O(W)',
+    description: 'Usa <strong>un solo array 1D</strong> en lugar de la tabla 2D. Recorriendo los pesos de W hacia abajo garantiza que cada ítem se use a lo sumo una vez. Misma velocidad, <strong>mucha menos memoria</strong>.',
+    code: `int knapsack_optimized(int W, int wt[], int val[], int n) {\n    int dp[101] = {0};\n    for (int i = 0; i < n; i++)\n        for (int w = W; w >= wt[i]; w--) // recorre al revés\n            if (dp[w-wt[i]] + val[i] > dp[w])\n                dp[w] = dp[w-wt[i]] + val[i];\n    return dp[W];\n}`
+  }
+};
 
 class KnapsackApp {
   constructor() {
@@ -24,6 +54,7 @@ class KnapsackApp {
 
     this.setupEventListeners();
     this.loadExample();
+    this.updateAlgorithmInfo();
   }
 
   setupEventListeners() {
@@ -32,7 +63,9 @@ class KnapsackApp {
       .addEventListener('change', () => this.render());
     document
       .getElementById('algorithm')
-      .addEventListener('change', () => this.render());
+      .addEventListener('change', () => {
+        this.render();
+        this.updateAlgorithmInfo();});
     document
       .getElementById('addItemBtn')
       .addEventListener('click', () => this.addItem());
@@ -45,6 +78,41 @@ class KnapsackApp {
     document
       .getElementById('clearBtn')
       .addEventListener('click', () => this.clear());
+  }
+
+  updateAlgorithmInfo() {
+    const key  = document.getElementById('algorithm').value;
+    const info = ALGO_INFO[key];
+    if (!info) return;
+
+    document.getElementById('algoInfo').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 2fr;gap:20px;">
+        <div>
+        <h2>Algoritmo Seleccionado</h2>
+          <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:14px;flex-wrap:wrap;">
+            <strong style="font-size:1.05rem">${info.name}</strong>
+            <span class="algo-badge ${info.badge}">${info.badgeText}</span>
+          </div>
+          <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
+            <div class="complexity-item">
+              <span class="label">Tiempo</span>
+              <span class="value">${info.timeComp}</span>
+            </div>
+            <div class="complexity-item">
+              <span class="label">Espacio</span>
+              <span class="value">${info.spaceComp}</span>
+            </div>
+          </div>
+          <p style="font-size:1rem;line-height:1.65;color:var(--text-main)">${info.description}</p>
+        </div>
+        <div style="display:flex;flex-direction:column;">
+          <p style="font-size:1rem;color:var(--text-main);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px">
+            Código C++
+          </p>
+          <pre class="algo-code">${info.code}</pre>
+        </div>
+      </div>
+    `;
   }
 
   addItem() {
