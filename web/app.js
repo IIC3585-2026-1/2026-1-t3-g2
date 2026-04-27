@@ -243,7 +243,13 @@ class KnapsackApp {
       const selectedIndices = this.findSelectedItems(maxWeight, resultValue);
 
       // Mostrar resultado
-      this.displayResult(resultValue, maxWeight, algorithmName, executionTime);
+      this.displayResult(
+        resultValue,
+        maxWeight,
+        algorithmName,
+        executionTime,
+        selectedIndices,
+      );
     } catch (error) {
       console.error('Error al resolver:', error);
       this.showError('Error al resolver el problema: ' + error.message);
@@ -254,7 +260,13 @@ class KnapsackApp {
     }
   }
 
-  displayResult(maxValue, maxWeight, algorithmName, executionTime) {
+  displayResult(
+    maxValue,
+    maxWeight,
+    algorithmName,
+    executionTime,
+    selectedIndices,
+  ) {
     const resultDiv = document.getElementById('result');
     resultDiv.classList.add('success');
     let totalWeight = 0;
@@ -286,7 +298,7 @@ class KnapsackApp {
                     <td><strong>${executionTime} ms</strong></td>
                 </tr>
             </table>
-            <h3 style="margin-top:20px">📦 Items en la Mochila:</h3>
+            <h3 style="margin-top:20px">Items en la Mochila:</h3>
             <table class="result-table">
               <tr><th>#</th><th>Peso</th><th>Valor</th></tr>
               ${selectedIndices.map((idx, i) => `<tr><td>${i + 1}</td><td>${this.items[idx].weight}</td><td>${this.items[idx].value}</td></tr>`).join('')}
