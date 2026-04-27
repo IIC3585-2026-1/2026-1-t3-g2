@@ -39,3 +39,7 @@ yarn-error.log*
 dist/
 build/
 *.out
+
+# C++ Tests (compiled binaries)
+cpp/test
+cpp/*.o
