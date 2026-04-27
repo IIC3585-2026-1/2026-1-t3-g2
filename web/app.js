@@ -154,56 +154,58 @@ class KnapsackApp {
   async solve() {
     if (!this.validate()) return;
 
+    // Esperar a que el WASM esté listo
+    if (!this.wasmReady) {
+      this.showError(
+        'El módulo WASM aún no está cargado. Intenta de nuevo en un segundo.',
+      );
+      return;
+    }
+
+    const maxWeight = parseInt(document.getElementById('maxWeight').value);
+    const algorithm = document.getElementById('algorithm').value;
+    const n = this.items.length;
+
+    // Obtener la función según el algoritmo seleccionado
+    let solveFunc;
+    let algorithmName;
+
+    switch (algorithm) {
+      case 'recursive':
+        solveFunc = this.solveRecursive;
+        algorithmName = 'Recursión (Fuerza Bruta)';
+        break;
+      case 'memo':
+        solveFunc = this.solveMemo;
+        algorithmName = 'Memoización (Top-Down)';
+        break;
+      case 'dp':
+        solveFunc = this.solveDp;
+        algorithmName = 'DP Bottom-Up';
+        break;
+      case 'optimized':
+        solveFunc = this.solveOptimized;
+        algorithmName = 'DP Optimizado';
+        break;
+    }
+
+    // Asignar memoria en WASM para pesos y valores
+    const weightsPtr = Module._malloc(n * 4); // 4 bytes por int
+    const valuesPtr = Module._malloc(n * 4);
+
     try {
-      // Esperar a que el WASM esté listo
-      if (!this.wasmReady) {
-        this.showError(
-          'El módulo WASM aún no está cargado. Intenta de nuevo en un segundo.',
-        );
-        return;
-      }
+      // Crear views en la memoria de WASM
+      const weightsData = new Int32Array(this.items.map((i) => i.weight));
+      const valuesData = new Int32Array(this.items.map((i) => i.value));
 
-      const maxWeight = parseInt(document.getElementById('maxWeight').value);
-      const algorithm = document.getElementById('algorithm').value;
-      const n = this.items.length;
-
-      // Crear arrays para pesos y valores
-      const weights = new Int32Array(n);
-      const values = new Int32Array(n);
-
-      this.items.forEach((item, idx) => {
-        weights[idx] = item.weight;
-        values[idx] = item.value;
-      });
-
-      // Obtener la función según el algoritmo seleccionado
-      let solveFunc;
-      let algorithmName;
-      
-      switch (algorithm) {
-        case 'recursive':
-          solveFunc = this.solveRecursive;
-          algorithmName = 'Recursión (Fuerza Bruta)';
-          break;
-        case 'memo':
-          solveFunc = this.solveMemo;
-          algorithmName = 'Memoización (Top-Down)';
-          break;
-        case 'dp':
-          solveFunc = this.solveDp;
-          algorithmName = 'DP Bottom-Up';
-          break;
-        case 'optimized':
-          solveFunc = this.solveOptimized;
-          algorithmName = 'DP Optimizado';
-          break;
-      }
+      Module.HEAPU32.set(weightsData, weightsPtr >> 2);
+      Module.HEAPU32.set(valuesData, valuesPtr >> 2);
 
       // Medir tiempo de ejecución
       const startTime = performance.now();
 
-      // Llamar la función WASM: solve_X(n, weights_ptr, values_ptr, maxWeight)
-      const resultValue = solveFunc(n, weights, values, maxWeight);
+      // Llamar la función WASM con punteros directos
+      const resultValue = solveFunc(n, weightsPtr, valuesPtr, maxWeight);
 
       const endTime = performance.now();
       const executionTime = (endTime - startTime).toFixed(3);
@@ -213,6 +215,10 @@ class KnapsackApp {
     } catch (error) {
       console.error('Error al resolver:', error);
       this.showError('Error al resolver el problema: ' + error.message);
+    } finally {
+      // Liberar memoria
+      Module._free(weightsPtr);
+      Module._free(valuesPtr);
     }
   }
 
@@ -269,29 +275,31 @@ Module.onRuntimeInitialized = function () {
   console.log('✓ Módulo WASM cargado exitosamente');
 
   // Cargar las 4 funciones de resolución
+  // Firma en C++: int solve_X(int n, int* wt, int* val, int W)
+  // Los punteros se pasan como números (obtenemos punteros de malloc)
   if (typeof Module.cwrap === 'function') {
     app.solveRecursive = Module.cwrap('solve_recursive', 'number', [
       'number',
-      'array',
-      'array',
+      'number',
+      'number',
       'number',
     ]);
     app.solveMemo = Module.cwrap('solve_memo', 'number', [
       'number',
-      'array',
-      'array',
+      'number',
+      'number',
       'number',
     ]);
     app.solveDp = Module.cwrap('solve_dp', 'number', [
       'number',
-      'array',
-      'array',
+      'number',
+      'number',
       'number',
     ]);
     app.solveOptimized = Module.cwrap('solve_optimized', 'number', [
       'number',
-      'array',
-      'array',
+      'number',
+      'number',
       'number',
     ]);
 
