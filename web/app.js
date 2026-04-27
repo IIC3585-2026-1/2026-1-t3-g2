@@ -154,55 +154,52 @@ class KnapsackApp {
   async solve() {
     if (!this.validate()) return;
 
+    // Esperar a que el WASM esté listo
+    if (!this.wasmReady) {
+      this.showError(
+        'El módulo WASM aún no está cargado. Intenta de nuevo en un segundo.',
+      );
+      return;
+    }
+
+    const maxWeight = parseInt(document.getElementById('maxWeight').value);
+    const algorithm = document.getElementById('algorithm').value;
+    const n = this.items.length;
+
+    // Obtener la función según el algoritmo seleccionado
+    let solveFunc;
+    let algorithmName;
+
+    switch (algorithm) {
+      case 'recursive':
+        solveFunc = this.solveRecursive;
+        algorithmName = 'Recursión (Fuerza Bruta)';
+        break;
+      case 'memo':
+        solveFunc = this.solveMemo;
+        algorithmName = 'Memoización (Top-Down)';
+        break;
+      case 'dp':
+        solveFunc = this.solveDp;
+        algorithmName = 'DP Bottom-Up';
+        break;
+      case 'optimized':
+        solveFunc = this.solveOptimized;
+        algorithmName = 'DP Optimizado';
+        break;
+    }
+
+    // Asignar memoria en WASM para pesos y valores
+    const weightsPtr = Module._malloc(n * 4); // 4 bytes por int
+    const valuesPtr = Module._malloc(n * 4);
+
     try {
-      // Esperar a que el WASM esté listo
-      if (!this.wasmReady) {
-        this.showError(
-          'El módulo WASM aún no está cargado. Intenta de nuevo en un segundo.',
-        );
-        return;
-      }
-
-      const maxWeight = parseInt(document.getElementById('maxWeight').value);
-      const algorithm = document.getElementById('algorithm').value;
-      const n = this.items.length;
-
-      // Obtener la función según el algoritmo seleccionado
-      let solveFunc;
-      let algorithmName;
-      
-      switch (algorithm) {
-        case 'recursive':
-          solveFunc = this.solveRecursive;
-          algorithmName = 'Recursión (Fuerza Bruta)';
-          break;
-        case 'memo':
-          solveFunc = this.solveMemo;
-          algorithmName = 'Memoización (Top-Down)';
-          break;
-        case 'dp':
-          solveFunc = this.solveDp;
-          algorithmName = 'DP Bottom-Up';
-          break;
-        case 'optimized':
-          solveFunc = this.solveOptimized;
-          algorithmName = 'DP Optimizado';
-          break;
-      }
-
-      // Asignar memoria en WASM para pesos y valores
-      const weightsPtr = Module._malloc(n * 4); // 4 bytes por int
-      const valuesPtr = Module._malloc(n * 4);
-
       // Crear views en la memoria de WASM
-      const weightsHeap = new Int32Array(Module.HEAP32.buffer, weightsPtr, n);
-      const valuesHeap = new Int32Array(Module.HEAP32.buffer, valuesPtr, n);
+      const weightsData = new Int32Array(this.items.map((i) => i.weight));
+      const valuesData = new Int32Array(this.items.map((i) => i.value));
 
-      // Copiar datos a la memoria WASM
-      this.items.forEach((item, idx) => {
-        weightsHeap[idx] = item.weight;
-        valuesHeap[idx] = item.value;
-      });
+      Module.HEAPU32.set(weightsData, weightsPtr >> 2);
+      Module.HEAPU32.set(valuesData, valuesPtr >> 2);
 
       // Medir tiempo de ejecución
       const startTime = performance.now();
@@ -213,15 +210,15 @@ class KnapsackApp {
       const endTime = performance.now();
       const executionTime = (endTime - startTime).toFixed(3);
 
-      // Liberar memoria
-      Module._free(weightsPtr);
-      Module._free(valuesPtr);
-
       // Mostrar resultado
       this.displayResult(resultValue, maxWeight, algorithmName, executionTime);
     } catch (error) {
       console.error('Error al resolver:', error);
       this.showError('Error al resolver el problema: ' + error.message);
+    } finally {
+      // Liberar memoria
+      Module._free(weightsPtr);
+      Module._free(valuesPtr);
     }
   }
 
