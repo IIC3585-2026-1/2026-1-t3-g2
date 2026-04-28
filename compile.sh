@@ -20,11 +20,10 @@ mkdir -p wasm
 mkdir -p web/wasm
 
 # Compilar el código C/C++ a WASM
-emcc cpp/knapsack_solvers.cpp \
+emcc cpp/knapsack.cpp \
     -o wasm/knapsack.js \
     -s WASM=1 \
-    -s EXPORTED_FUNCTIONS='["_solve_recursive","_solve_memo","_solve_dp","_solve_optimized","_malloc","_free"]' \
-    -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap", "HEAPU32"]' \
+    --bind \
     -O3
 
 # Copiar archivos compilados a la carpeta web

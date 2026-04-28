@@ -65,7 +65,8 @@ class KnapsackApp {
       .getElementById('algorithm')
       .addEventListener('change', () => {
         this.render();
-        this.updateAlgorithmInfo();});
+        this.updateAlgorithmInfo();
+      });
     document
       .getElementById('addItemBtn')
       .addEventListener('click', () => this.addItem());
@@ -81,7 +82,7 @@ class KnapsackApp {
   }
 
   updateAlgorithmInfo() {
-    const key  = document.getElementById('algorithm').value;
+    const key = document.getElementById('algorithm').value;
     const info = ALGO_INFO[key];
     if (!info) return;
 
@@ -265,16 +266,24 @@ class KnapsackApp {
     const n = this.items.length;
 
     // Asignar memoria en WASM para pesos y valores
-    const weightsPtr = Module._malloc(n * 4); // 4 bytes por int
-    const valuesPtr = Module._malloc(n * 4);
+    //const weightsPtr = Module._malloc(n * 4); // 4 bytes por int
+    //const valuesPtr = Module._malloc(n * 4);
+
+    const weightsVec = new Module.VectorInt();
+    const valuesVec = new Module.VectorInt();
+
+    this.items.forEach(i => {
+      weightsVec.push_back(i.weight);
+      valuesVec.push_back(i.value);
+    });
 
     try {
       // Crear views en la memoria de WASM
-      const weightsData = new Int32Array(this.items.map((i) => i.weight));
-      const valuesData = new Int32Array(this.items.map((i) => i.value));
+      //const weightsData = new Int32Array(this.items.map((i) => i.weight));
+      //const valuesData = new Int32Array(this.items.map((i) => i.value));
 
-      Module.HEAPU32.set(weightsData, weightsPtr >> 2);
-      Module.HEAPU32.set(valuesData, valuesPtr >> 2);
+      // Module.HEAPU32.set(weightsData, weightsPtr >> 2);
+      // Module.HEAPU32.set(valuesData, valuesPtr >> 2);
 
       // Obtener la función según el algoritmo seleccionado
       let solveFunc;
@@ -303,7 +312,7 @@ class KnapsackApp {
       const startTime = performance.now();
 
       // Llamar la función WASM con punteros directos
-      const resultValue = solveFunc(n, weightsPtr, valuesPtr, maxWeight);
+      const resultValue = solveFunc(weightsVec, valuesVec, maxWeight);
 
       const endTime = performance.now();
       const executionTime = (endTime - startTime).toFixed(3);
@@ -323,8 +332,11 @@ class KnapsackApp {
       this.showError('Error al resolver el problema: ' + error.message);
     } finally {
       // Liberar memoria
-      Module._free(weightsPtr);
-      Module._free(valuesPtr);
+      //Module._free(weightsPtr);
+      //Module._free(valuesPtr);
+
+      weightsVec.delete();
+      valuesVec.delete();
     }
   }
 
@@ -391,48 +403,18 @@ if (typeof Module === 'undefined') {
 Module.onRuntimeInitialized = function () {
   console.log('✓ Módulo WASM cargado exitosamente');
 
-  // Cargar las 4 funciones de resolución
-  // Firma en C++: int solve_X(int n, int* wt, int* val, int W)
-  // Los punteros se pasan como números (obtenemos punteros de malloc)
-  if (typeof Module.cwrap === 'function') {
-    app.solveRecursive = Module.cwrap('solve_recursive', 'number', [
-      'number',
-      'number',
-      'number',
-      'number',
-    ]);
-    app.solveMemo = Module.cwrap('solve_memo', 'number', [
-      'number',
-      'number',
-      'number',
-      'number',
-    ]);
-    app.solveDp = Module.cwrap('solve_dp', 'number', [
-      'number',
-      'number',
-      'number',
-      'number',
-    ]);
-    app.solveOptimized = Module.cwrap('solve_optimized', 'number', [
-      'number',
-      'number',
-      'number',
-      'number',
-    ]);
-
-    app.wasmReady = true;
-    console.log('✓ Todas las funciones WASM están listas');
-    console.log('  - solve_recursive (Recursión)');
-    console.log('  - solve_memo (Memoización)');
-    console.log('  - solve_dp (DP Bottom-Up)');
-    console.log('  - solve_optimized (DP Optimizado)');
-  } else {
-    console.error('cwrap no disponible');
-  }
-
   if (!app) {
     app = new KnapsackApp();
   }
+
+  app.solveRecursive = Module.solve_recursive;
+  app.solveMemo = Module.solve_memo;
+  app.solveDp = Module.solve_dp;
+  app.solveOptimized = Module.solve_optimized;
+
+  app.wasmReady = true;
+
+  console.log('✓ Todas las funciones WASM están listas (embind)');
 };
 
 // Inicializar si el módulo ya está cargado
